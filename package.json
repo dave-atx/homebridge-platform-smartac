@@ -1,0 +1,32 @@
+{
+  "name": "homebridge-platform-smartac",
+  "version": "1.0.0",
+  "description": "SmartAC plugin for homebridge",
+  "keywords": [
+    "homebridge-plugin",
+    "smartac",
+    "coolny",
+    "thinkeco",
+    "thermostat"
+  ],
+  "main": "index.js",
+  "author": "Dave Marquard <dave@marquard.org>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/dave-atx/homebridge-platform-smartac.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dave-atx/homebridge-platform-smartac/issues"
+  },
+  "homepage": "https://github.com/dave-atx/homebridge-platform-smartac#readme",
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "request": "^2.81.0",
+    "request-promise-native": "^1.0.4"
+  },
+  "engines": {
+    "node": ">=7.6.0",
+    "homebridge": ">=0.3.0"
+  }
+}
