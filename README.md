@@ -10,7 +10,7 @@ ConEd's [coolNYC / Smart AC program][2].
 
 1. Install homebridge using: `npm install -g homebridge`
 2. Install this plugin using: `npm install -g homebridge-platform-smartac`
-3. Update your configuration file. See `sample-config.json` in this repository for an example.
+3. Update your configuration file. See `config-sample.json` in this repository for an example.
 
 That's it! All thermostats configured in your [mymodlet.com][3] account should
 now be available in the Home app on iOS.
@@ -28,7 +28,7 @@ in to [mymodlet.com][3] in your homebridge configuration. For example:
         }
     ]
 
-`platform` must be `"SmartAC"`. You can use any value for `"name"` that you'd like.
+`platform` must be `"SmartAC"`. You can use any value for `name` that you'd like.
 
 [1]: https://github.com/nfarina/homebridge
 [2]: https://conedsmartac.com
