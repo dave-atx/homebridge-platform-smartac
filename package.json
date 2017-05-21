@@ -28,5 +28,8 @@
   "engines": {
     "node": ">=7.6.0",
     "homebridge": ">=0.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^3.19.0"
   }
 }

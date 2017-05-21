@@ -1,4 +1,4 @@
-const cheerio = require('cheerio')
+const cheerio = require('cheerio');
 const rp = require('request-promise-native');
 
 var Service;
@@ -8,7 +8,7 @@ module.exports = function(homebridge) {
   Service = homebridge.hap.Service;
   Characteristic = homebridge.hap.Characteristic;
   homebridge.registerPlatform('homebridge-platform-smartac', 'SmartAC', SmartACPlatform);
-}
+};
 
 function SmartACPlatform(log, config) {
   this.log = log;
@@ -19,12 +19,12 @@ SmartACPlatform.prototype.accessories = function(callback) {
   new ThinkEcoAPI(this.config['username'], this.config['password'], this.log)
     .getThermostats()
     .then(thermostats => callback(Array.from(thermostats)));
-}
+};
 
 const LOGIN_FREQUENCY = 2 * 60 * 60 * 1000; // 2 hours
 const UPDATE_FREQUENCY = 2 * 1000; // 2 seconds
 
-// enapsulate the ThinkEco "API" / screen scraping mymodlet.com
+// encapsulate the ThinkEco "API" / screen scraping mymodlet.com
 // handles retrieving and updating thermostat statuses and maintains
 // a cache of all known thermostats in the mymodlet.com account
 class ThinkEcoAPI {
@@ -41,15 +41,16 @@ class ThinkEcoAPI {
   // login to the site, doing so once every LOGIN_FREQUENCY millis
   async auth() {
     if (Date.now() - this.lastLogin > LOGIN_FREQUENCY) {
-        this.log('api', 'logging in...');
-        await this.session.post({uri: 'https://mymodlet.com/Account/Login',
-                                 form: {'loginForm.Email': this.username,
-                                        'loginForm.Password': this.password,
-                                        'loginForm.RememberMe': 'True',
-                                        'ReturnUrl': '/smartac'},
-                                 followRedirect: false,
-                                 simple: false});
-        this.lastLogin = Date.now();
+      this.log('api', 'logging in...');
+      await this.session.post(
+        {uri: 'https://mymodlet.com/Account/Login',
+          form: {'loginForm.Email': this.username,
+            'loginForm.Password': this.password,
+            'loginForm.RememberMe': 'True',
+            'ReturnUrl': '/smartac'},
+          followRedirect: false,
+          simple: false});
+      this.lastLogin = Date.now();
     }
   }
 
@@ -89,10 +90,10 @@ class ThinkEcoAPI {
     await this.auth();
     const r = await this.session.post(
       {uri: 'https://mymodlet.com/SmartAC/UserSettings',
-       body: {'applianceId': thermostat.id,
-              'targetTemperature': '' + thermostat.targetTemp,
-              'thermostated': thermostat.powerOn },
-       json: true });
+        body: {'applianceId': thermostat.id,
+          'targetTemperature': '' + thermostat.targetTemp,
+          'thermostated': thermostat.powerOn },
+        json: true });
     return r.Success;
   }
 }
