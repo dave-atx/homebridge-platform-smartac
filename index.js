@@ -117,8 +117,8 @@ class Thermostat {
   }
 
   getCurrentHeatingCoolingState(callback) {
-    this.api.log(this.name, 'heating / cooling state');
     this.api.getThermostats().then(() => {
+      this.api.log(this.name, 'heating / cooling state: ' + this.powerOn);
       if (this.powerOn)
         callback(null, Characteristic.CurrentHeatingCoolingState.COOL);
       else
@@ -164,6 +164,7 @@ class Thermostat {
 
     thermostatService
       .getCharacteristic(Characteristic.TargetHeatingCoolingState)
+      .on('get', this.getCurrentHeatingCoolingState.bind(this))
       .on('set', this.setTargetHeatingCoolingState.bind(this));
 
     // the next two characteristics work in celsius in the homekit api
