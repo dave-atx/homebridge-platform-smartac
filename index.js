@@ -24,6 +24,45 @@ SmartACPlatform.prototype.accessories = function(callback) {
 const LOGIN_FREQUENCY = 2 * 60 * 60 * 1000; // 2 hours
 const UPDATE_FREQUENCY = 2 * 1000; // 2 seconds
 
+// this is a very simple mutex that we use to ensure
+// that we make only one concurrent request goes to mymodlet.com
+class Lock {
+  constructor() {
+    this.locked = false;
+    this.waiters = [];
+  }
+
+  // returns a promise that resolves when the lock is acquired
+  acquire() {
+    if (this.locked) {
+      let notify;
+      // the notify() method on the promise object will now
+      // resolve that promise. once resolved, it will attempt
+      // to reacquire the lock
+      let p = new Promise(resolve => notify = resolve)
+        .then(() => this.acquire());
+
+      p.notify = notify;
+      this.waiters.push(p);
+      return p;
+    }
+    else {
+      // if we can acquire the lock straight away, just
+      // return an already resolved promise
+      this.locked = true;
+      return Promise.resolve(true);
+    }
+  }
+
+  release() {
+    this.locked = false;
+    let next = this.waiters.shift();
+    if (next)
+      next.notify(true);
+  }
+}
+
+
 // encapsulate the ThinkEco "API" / screen scraping mymodlet.com
 // handles retrieving and updating thermostat statuses and maintains
 // a cache of all known thermostats in the mymodlet.com account
@@ -36,6 +75,7 @@ class ThinkEcoAPI {
     this.thermostats = new Map();
     this.session = rp.defaults({ gzip:true, jar:true });
     this.log = log;
+    this.lock = new Lock();
   }
 
   // login to the site, doing so once every LOGIN_FREQUENCY millis
@@ -58,6 +98,11 @@ class ThinkEcoAPI {
   // will retain a reference to and update the current status of
   // all returned Thermostats each time it's called
   async getThermostats() {
+    // we only want a single concurrent call to mymodlet.com
+    // because this is quite expensive. without a lock, multiple
+    // concurrent operations here makes updating multiple attributes
+    // on a thermostat(s) is pretty slow.
+    await this.lock.acquire();
     if (Date.now() - this.lastUpdate > UPDATE_FREQUENCY) {
       this.log('api', 'updating thermostat status...');
       await this.auth();
@@ -81,6 +126,7 @@ class ThinkEcoAPI {
       });
       this.lastUpdate = Date.now();
     }
+    this.lock.release();
     return this.thermostats.values();
   }
 
@@ -133,13 +179,17 @@ class Thermostat {
   }
 
   getCurrentTemperature(callback) {
-    this.api.log(this.name, 'current temp: ' + this.currentTemp);
-    this.api.getThermostats().then(() => callback(null, toC(this.currentTemp)));
+    this.api.getThermostats().then(() => {
+      this.api.log(this.name, 'current temp: ' + this.currentTemp);
+      callback(null, toC(this.currentTemp));
+    });
   }
 
   getTargetTemperature(callback) {
-    this.api.log(this.name, 'get target temp: ' + this.targetTemp);
-    this.api.getThermostats().then(() => callback(null, toC(this.targetTemp)));
+    this.api.getThermostats().then(() => {
+      this.api.log(this.name, 'get target temp: ' + this.targetTemp);
+      callback(null, toC(this.targetTemp));
+    });
   }
 
   setTargetTemperature(value, callback) {
