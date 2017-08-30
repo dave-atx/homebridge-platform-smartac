@@ -39,7 +39,7 @@ class Lock {
       // the notify() method on the promise object will now
       // resolve that promise. once resolved, it will attempt
       // to reacquire the lock
-      let p = new Promise(resolve => notify = resolve)
+      const p = new Promise(resolve => notify = resolve)
         .then(() => this.acquire());
 
       p.notify = notify;
@@ -56,7 +56,7 @@ class Lock {
 
   release() {
     this.locked = false;
-    let next = this.waiters.shift();
+    const next = this.waiters.shift();
     if (next)
       next.notify(true);
   }
@@ -163,13 +163,13 @@ class Thermostat {
   }
 
   getCurrentHeatingCoolingState(callback) {
-    this.api.getThermostats().then(() => {
+    (async () => {
+      await this.api.getThermostats();
       this.api.log(this.name, 'heating / cooling state: ' + this.powerOn);
-      if (this.powerOn)
-        callback(null, Characteristic.CurrentHeatingCoolingState.COOL);
-      else
-        callback(null, Characteristic.CurrentHeatingCoolingState.OFF);
-    });
+      callback(null, this.powerOn ?
+        Characteristic.CurrentHeatingCoolingState.COOL :
+        Characteristic.CurrentHeatingCoolingState.OFF);
+    })();
   }
 
   setTargetHeatingCoolingState(value, callback) {
@@ -179,17 +179,19 @@ class Thermostat {
   }
 
   getCurrentTemperature(callback) {
-    this.api.getThermostats().then(() => {
+    (async () => {
+      await this.api.getThermostats();
       this.api.log(this.name, 'current temp: ' + this.currentTemp);
       callback(null, toC(this.currentTemp));
-    });
+    })();
   }
 
   getTargetTemperature(callback) {
-    this.api.getThermostats().then(() => {
+    (async () => {
+      await this.api.getThermostats();
       this.api.log(this.name, 'get target temp: ' + this.targetTemp);
       callback(null, toC(this.targetTemp));
-    });
+    })();
   }
 
   setTargetTemperature(value, callback) {
@@ -206,7 +208,7 @@ class Thermostat {
 
   // homebridge calls this function to learn about the thermostat
   getServices() {
-    let thermostatService = new Service.Thermostat(this.name);
+    const thermostatService = new Service.Thermostat(this.name);
 
     thermostatService
       .getCharacteristic(Characteristic.CurrentHeatingCoolingState)
@@ -234,7 +236,7 @@ class Thermostat {
       .getCharacteristic(Characteristic.TemperatureDisplayUnits)
       .on('get', this.getTemperatureDisplayUnits.bind(this));
 
-    let informationService = new Service.AccessoryInformation()
+    const informationService = new Service.AccessoryInformation()
       .setCharacteristic(Characteristic.Manufacturer, 'ThinkEco')
       .setCharacteristic(Characteristic.Model, 'SmartAC')
       .setCharacteristic(Characteristic.SerialNumber, 'Not Applicable');
