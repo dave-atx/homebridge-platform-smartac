@@ -8,7 +8,7 @@ ConEd's [coolNYC / Smart AC program][2].
 
 ## Installation
 
-1. Ensure that you are running Node.js v7.6 or higher. As of this writing, that means you should be running the [Current branch][4]. If you're unsure what version you've got installed, you can check using: `node --version`
+1. Ensure that you are running Node.js v7.6 or higher. As of this writing, that means you should be running the [8.x LTS version][4]. If you're unsure what version you've got installed, you can check using: `node --version`
 2. Install homebridge using: `npm install -g homebridge`
 3. Install this plugin using: `npm install -g homebridge-platform-smartac`
 4. Update your configuration file. See `config-sample.json` in this repository for an example.
@@ -34,4 +34,4 @@ in to [mymodlet.com][3] in your homebridge configuration. For example:
 [1]: https://github.com/nfarina/homebridge
 [2]: https://conedsmartac.com
 [3]: https://mymodlet.com
-[4]: https://nodejs.org/en/download/current/
+[4]: https://nodejs.org/en/download
