@@ -162,20 +162,46 @@ class Thermostat {
     return this.api.pushUpdate(this);
   }
 
-  getCurrentHeatingCoolingState(callback) {
+  getActiveState(callback) {
     (async () => {
       await this.api.getThermostats();
-      this.api.log(this.name, 'heating / cooling state: ' + this.powerOn);
+
+      this.api.log(this.name, 'heating / cooling active: ' + this.powerOn);
+
       callback(null, this.powerOn ?
-        Characteristic.CurrentHeatingCoolingState.COOL :
-        Characteristic.CurrentHeatingCoolingState.OFF);
+        Characteristic.Active.ACTIVE:
+        Characteristic.Active.INACTIVE);
     })();
   }
 
-  setTargetHeatingCoolingState(value, callback) {
-    this.api.log(this.name, 'target heating / cooling state: ' + value);
-    this.powerOn = value === Characteristic.CurrentHeatingCoolingState.COOL;
-    this.update().then(() => callback(null, value));
+  setActiveState(value, callback) {
+    (async () => {
+      await this.api.getThermostats();
+      this.api.log(this.name, 'set heating / cooling active: ' + !this.powerOn);
+
+      this.powerOn = !this.powerOn;
+      this.update().then(() => callback());
+    })();
+  }
+
+  getCurrentHeaterCoolerState(callback) {
+    (async () => {
+      await this.api.getThermostats();
+
+      // Check if we're at our target temperature, so we can show
+      // the air conditioner as "idle" in the Home app.
+      var atTarget = toC(this.currentTemp) <= toC(this.targetTemp);
+
+      this.api.log(this.name, 'heating / cooling state: ' + atTarget);
+
+      callback(null, atTarget ?
+        Characteristic.CurrentHeaterCoolerState.IDLE:
+        Characteristic.CurrentHeaterCoolerState.COOLING);
+    })();
+  }
+
+  getTargetHeaterCoolerState(callback) {
+      callback(null, Characteristic.TargetHeaterCoolerState.COOL);
   }
 
   getCurrentTemperature(callback) {
@@ -201,46 +227,45 @@ class Thermostat {
     this.update().then(() => callback(null, value));
   }
 
-  getTemperatureDisplayUnits(callback) {
-    this.api.log(this.name, 'temperature display units');
-    callback(null, Characteristic.TemperatureDisplayUnits.FAHRENHEIT);
-  }
-
   // homebridge calls this function to learn about the thermostat
   getServices() {
-    const thermostatService = new Service.Thermostat(this.name);
+    const heaterCoolerService = new Service.HeaterCooler(this.name);
 
-    thermostatService
-      .getCharacteristic(Characteristic.CurrentHeatingCoolingState)
-      .on('get', this.getCurrentHeatingCoolingState.bind(this));
+    heaterCoolerService
+      .getCharacteristic(Characteristic.Active)
+      .on('get', this.getActiveState.bind(this))
+      .on('set', this.setActiveState.bind(this));
 
-    thermostatService
-      .getCharacteristic(Characteristic.TargetHeatingCoolingState)
-      .on('get', this.getCurrentHeatingCoolingState.bind(this))
-      .on('set', this.setTargetHeatingCoolingState.bind(this));
+    heaterCoolerService
+      .getCharacteristic(Characteristic.CurrentHeaterCoolerState)
+      .on('get', this.getCurrentHeaterCoolerState.bind(this));
+
+    heaterCoolerService
+      .getCharacteristic(Characteristic.TargetHeaterCoolerState)
+      .setProps({
+        // Only show options for cooling, since it's an A/C!
+        validValues: [Characteristic.TargetHeaterCoolerState.COOL]
+      })
+      .on('get', this.getTargetHeaterCoolerState.bind(this));
 
     // the next two characteristics work in celsius in the homekit api
     // min/max controls what the ios home app shows for the range of control
-    thermostatService
+    heaterCoolerService
       .getCharacteristic(Characteristic.CurrentTemperature)
       .setProps({ minValue: 5, maxValue: 40, minStep: 0.1})
       .on('get', this.getCurrentTemperature.bind(this));
 
-    thermostatService
-      .getCharacteristic(Characteristic.TargetTemperature)
+    heaterCoolerService
+      .getCharacteristic(Characteristic.CoolingThresholdTemperature)
       .setProps({ minValue: 15, maxValue: 33, minStep: 0.1})
       .on('get', this.getTargetTemperature.bind(this))
       .on('set', this.setTargetTemperature.bind(this));
-
-    thermostatService
-      .getCharacteristic(Characteristic.TemperatureDisplayUnits)
-      .on('get', this.getTemperatureDisplayUnits.bind(this));
 
     const informationService = new Service.AccessoryInformation()
       .setCharacteristic(Characteristic.Manufacturer, 'ThinkEco')
       .setCharacteristic(Characteristic.Model, 'SmartAC')
       .setCharacteristic(Characteristic.SerialNumber, 'Not Applicable');
 
-    return [informationService, thermostatService];
+    return [informationService, heaterCoolerService];
   }
 }
