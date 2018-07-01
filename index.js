@@ -123,6 +123,7 @@ class ThinkEcoAPI {
         thermostat.targetTemp = parseInt($('option:checked', $(e).parent()).val());
         thermostat.currentTemp = parseInt($('#currentTemperature', $(e).parent()).text());
         thermostat.powerOn = $('#deviceAction', $(e).parent()).children('a').is('.Off');
+        thermostat.broken = $('#deviceAction', $(e).parent()).children('button').is(':disabled');
       });
       this.lastUpdate = Date.now();
     }
@@ -162,9 +163,19 @@ class Thermostat {
     return this.api.pushUpdate(this);
   }
 
+  handleErrors(callback) {
+    if (this.broken) {
+      let error = new Error('Unable to read/write thermostat.');
+      callback(error);
+
+      throw error;
+    }
+  }
+
   getActiveState(callback) {
     (async () => {
       await this.api.getThermostats();
+      this.handleErrors(callback);
 
       this.api.log(this.name, 'heating / cooling active: ' + this.powerOn);
 
@@ -177,6 +188,8 @@ class Thermostat {
   setActiveState(value, callback) {
     (async () => {
       await this.api.getThermostats();
+      this.handleErrors(callback);
+
       this.api.log(this.name, 'set heating / cooling active: ' + !this.powerOn);
 
       this.powerOn = !this.powerOn;
@@ -187,6 +200,7 @@ class Thermostat {
   getCurrentHeaterCoolerState(callback) {
     (async () => {
       await this.api.getThermostats();
+      this.handleErrors(callback);
 
       // Check if we're at our target temperature, so we can show
       // the air conditioner as "idle" in the Home app.
@@ -201,12 +215,14 @@ class Thermostat {
   }
 
   getTargetHeaterCoolerState(callback) {
-      callback(null, Characteristic.TargetHeaterCoolerState.COOL);
+    callback(null, Characteristic.TargetHeaterCoolerState.COOL);
   }
 
   getCurrentTemperature(callback) {
     (async () => {
       await this.api.getThermostats();
+      this.handleErrors(callback);
+
       this.api.log(this.name, 'current temp: ' + this.currentTemp);
       callback(null, toC(this.currentTemp));
     })();
@@ -215,6 +231,8 @@ class Thermostat {
   getTargetTemperature(callback) {
     (async () => {
       await this.api.getThermostats();
+      this.handleErrors(callback);
+
       this.api.log(this.name, 'get target temp: ' + this.targetTemp);
       callback(null, toC(this.targetTemp));
     })();
