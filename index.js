@@ -82,14 +82,23 @@ class ThinkEcoAPI {
   async auth() {
     if (Date.now() - this.lastLogin > LOGIN_FREQUENCY) {
       this.log('api', 'logging in...');
-      await this.session.post(
-        {uri: 'https://mymodlet.com/Account/Login',
-          form: {'loginForm.Email': this.username,
-            'loginForm.Password': this.password,
-            'loginForm.RememberMe': 'True',
-            'ReturnUrl': '/smartac'},
-          followRedirect: false,
-          simple: false});
+
+      await this.session.post({
+        uri: 'https://web.mymodlet.com/Account/Login',
+        body: {
+          // ThinkEco uses a strangely formatted payload:
+          // stringified JSON inside a 'data' JSON object.
+          data: JSON.stringify({
+            'Email': this.username,
+            'Password': this.password,
+          }),
+        },
+        followRedirect: false,
+        simple: false,
+        json: true,
+        jar: true,
+      });
+
       this.lastLogin = Date.now();
     }
   }
@@ -107,24 +116,29 @@ class ThinkEcoAPI {
       this.log('api', 'updating thermostat status...');
       await this.auth();
       const statusTxt =
-       await this.session.post('https://mymodlet.com/SmartAC/UserSettingsTable');
+        await this.session.get('https://web.mymodlet.com/Devices/UpdateData');
 
-      // status is a quoted blob of HTML...
-      const status = JSON.parse('{"response":' + statusTxt + '}');
-      const $ = cheerio.load(status.response);
-      $('#appName').has('.drSetTemp').each((i, e) => {
-        const id = $('.drSetTemp', e).attr('id');
+      // statusTxt is a quoted string of JSON, e.g. "{\"SmartACs\": ... }" 
+      let status = JSON.parse(JSON.parse(statusTxt));
+      status.SmartACs.forEach(ac => {
+        // Find the corresponding device for name.
+        const modletId = ac.modlet.modletId;
+        const device = status.Devices.find(item => item.modletId == modletId);
+        const id = device.deviceId;
+
         let thermostat = this.thermostats.get(id);
         if (!thermostat) {
           thermostat = new Thermostat(this, id);
           this.thermostats.set(id, thermostat);
         }
-        thermostat.name = $(e).children().first().text();
-        thermostat.targetTemp = parseInt($('option:checked', $(e).parent()).val());
-        thermostat.currentTemp = parseInt($('#currentTemperature', $(e).parent()).text());
-        thermostat.powerOn = $('#deviceAction', $(e).parent()).children('a').is('.Off');
-        thermostat.broken = $('#deviceAction', $(e).parent()).children('button').is(':disabled');
+
+        thermostat.name = device.deviceName;
+        thermostat.targetTemp = ac.thermostat.targetTemperature;
+        thermostat.currentTemp = ac.thermostat.currentTemperature;
+        thermostat.powerOn = ac.modlet.isOn;
+        thermostat.broken = !(ac.modlet.hasThermostat && ac.thermostat.thermostatIsOTA);
       });
+
       this.lastUpdate = Date.now();
     }
     this.lock.release();
@@ -135,13 +149,22 @@ class ThinkEcoAPI {
   // returns a boolean indicating if mymodlet.com told us if it was successful
   async pushUpdate(thermostat) {
     await this.auth();
-    const r = await this.session.post(
-      {uri: 'https://mymodlet.com/SmartAC/UserSettings',
-        body: {'applianceId': thermostat.id,
-          'targetTemperature': '' + thermostat.targetTemp,
-          'thermostated': thermostat.powerOn },
-        json: true });
-    return r.Success;
+    const r = await this.session.post({
+      uri: 'https://web.mymodlet.com/Devices/UserSettingsUpdate',
+      body: {
+        data: JSON.stringify({
+          'DeviceId': thermostat.id,
+          'TargetTemperature': String(thermostat.targetTemp),
+          'IsThermostated': thermostat.powerOn
+        }),
+      },
+      json: true
+    });
+
+    // Returned as a quoted string of JSON, so need to decode again...
+    const parsedResponse = JSON.parse(r);
+
+    return parsedResponse.data.status.IsError === false;
   }
 }
 
