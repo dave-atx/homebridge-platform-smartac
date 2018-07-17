@@ -21,7 +21,6 @@
   },
   "homepage": "https://github.com/dave-atx/homebridge-platform-smartac#readme",
   "dependencies": {
-    "cheerio": "^0.22.0",
     "request": "^2.83.0",
     "request-promise-native": "^1.0.5"
   },

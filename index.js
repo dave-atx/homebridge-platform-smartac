@@ -1,4 +1,3 @@
-const cheerio = require('cheerio');
 const rp = require('request-promise-native');
 
 var Service;
