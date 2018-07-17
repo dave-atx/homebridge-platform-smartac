@@ -136,7 +136,8 @@ class ThinkEcoAPI {
         thermostat.targetTemp = ac.thermostat.targetTemperature;
         thermostat.currentTemp = ac.thermostat.currentTemperature;
         thermostat.powerOn = ac.modlet.isOn;
-        thermostat.broken = !(ac.modlet.hasThermostat && ac.thermostat.thermostatIsOTA);
+        thermostat.modletOffline = ! ac.modlet.isOTA;
+        thermostat.thermostatOffline = !(ac.modlet.hasThermostat && ac.thermostat.thermostatIsOTA);
       });
 
       this.lastUpdate = Date.now();
@@ -186,19 +187,13 @@ class Thermostat {
     return this.api.pushUpdate(this);
   }
 
-  handleErrors(callback) {
-    if (this.broken) {
-      let error = new Error('Unable to read/write thermostat.');
-      callback(error);
-
-      throw error;
-    }
-  }
-
   getActiveState(callback) {
     (async () => {
       await this.api.getThermostats();
-      this.handleErrors(callback);
+
+      if (this.modletOffline) {
+        return callback(new Error('Modlet broken.'));
+      }
 
       this.api.log(this.name, 'heating / cooling active: ' + this.powerOn);
 
@@ -211,7 +206,10 @@ class Thermostat {
   setActiveState(value, callback) {
     (async () => {
       await this.api.getThermostats();
-      this.handleErrors(callback);
+
+      if (this.modletOffline) {
+        return callback(new Error('Modlet broken.'));
+      }
 
       this.api.log(this.name, 'set heating / cooling active: ' + !this.powerOn);
 
@@ -223,7 +221,6 @@ class Thermostat {
   getCurrentHeaterCoolerState(callback) {
     (async () => {
       await this.api.getThermostats();
-      this.handleErrors(callback);
 
       // Check if we're at our target temperature, so we can show
       // the air conditioner as "idle" in the Home app.
@@ -244,7 +241,12 @@ class Thermostat {
   getCurrentTemperature(callback) {
     (async () => {
       await this.api.getThermostats();
-      this.handleErrors(callback);
+
+      if (this.thermostatOffline) {
+        // Passing an actual error here disables HomeKit controls,
+        // so using '0° F' to indicate thermostat offline.
+        return callback(null, toC(0));
+      }
 
       this.api.log(this.name, 'current temp: ' + this.currentTemp);
       callback(null, toC(this.currentTemp));
@@ -254,7 +256,10 @@ class Thermostat {
   getTargetTemperature(callback) {
     (async () => {
       await this.api.getThermostats();
-      this.handleErrors(callback);
+
+      if (this.modletOffline) {
+        return callback(new Error('Modlet broken.'));
+      }
 
       this.api.log(this.name, 'get target temp: ' + this.targetTemp);
       callback(null, toC(this.targetTemp));
@@ -293,7 +298,7 @@ class Thermostat {
     // min/max controls what the ios home app shows for the range of control
     heaterCoolerService
       .getCharacteristic(Characteristic.CurrentTemperature)
-      .setProps({ minValue: 5, maxValue: 40, minStep: 0.1})
+      .setProps({ minValue: -100, maxValue: 100, minStep: 0.1})
       .on('get', this.getCurrentTemperature.bind(this));
 
     heaterCoolerService
